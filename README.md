@@ -6,16 +6,28 @@ records every money movement, and enforces the balance constraint when orders ar
 ## Running locally
 
 ```bash
-# 1. Copy the env template and fill in your values
+# 1. Copy the env template
 cp .env.example .env
+```
 
-# 2. Export env vars into your shell
-source .env
+Edit `.env` and fill in your values. For a default local setup:
+
+```
+DB_URL=jdbc:postgresql://localhost:5432/walletdb
+DB_NAME=walletdb
+DB_USERNAME=wallet_user
+DB_PASSWORD=wallet_pass
+JWT_SECRET=keychain-wallet-service-super-secret-key-minimum-32-chars-hs256
+```
+
+```bash
+# 2. Export env vars into your shell (repeat this in every new terminal session)
+set -a; source .env; set +a
 
 # 3. Start Postgres
 docker compose up -d
 
-# 4. Start the service
+# 4. Start the service (env vars from step 2 must be exported first)
 ./mvnw spring-boot:run
 
 # Smoke tests

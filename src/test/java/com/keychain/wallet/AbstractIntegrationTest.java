@@ -44,7 +44,8 @@ public abstract class AbstractIntegrationTest {
             new PostgreSQLContainer<>("postgres:15")
                     .withDatabaseName("walletdb_test")
                     .withUsername("wallet_user")
-                    .withPassword("wallet_pass");
+                    .withPassword("wallet_pass")
+                    .withInitScript("db/init.sql");
 
     static {
         postgres.start();
@@ -55,6 +56,7 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("jwt.secret", () -> "keychain-wallet-service-super-secret-key-minimum-32-chars-hs256");
     }
 
     @LocalServerPort
