@@ -6,10 +6,16 @@ records every money movement, and enforces the balance constraint when orders ar
 ## Running locally
 
 ```bash
-# Start Postgres
+# 1. Copy the env template and fill in your values
+cp .env.example .env
+
+# 2. Export env vars into your shell
+source .env
+
+# 3. Start Postgres
 docker compose up -d
 
-# Start the service
+# 4. Start the service
 ./mvnw spring-boot:run
 
 # Smoke tests
@@ -35,7 +41,7 @@ Every endpoint except `/health` and `/health/db` requires a bearer token:
 Authorization: Bearer <HS256-signed JWT>
 ```
 
-The shared secret is configured via `jwt.secret` in `application.properties`. The service is a stateless OAuth2 resource server — the token is validated on every request; there are no sessions or login endpoints.
+The shared secret is read from the `JWT_SECRET` environment variable (set in `.env`). The service is a stateless OAuth2 resource server — the token is validated on every request; there are no sessions or login endpoints.
 
 ### Token types
 
@@ -50,6 +56,22 @@ Two distinct token types are used depending on the caller:
 ```json
 { "sub": "order-service", "roles": ["SERVICE"] }
 ```
+
+### Generating test tokens
+
+Use [jwt.io](https://jwt.io) to mint tokens for Postman or curl testing:
+
+1. Set **Algorithm** to `HS256`.
+2. Paste a payload — for a user token:
+   ```json
+   { "sub": "cust-001", "roles": ["USER"] }
+   ```
+   For a service token:
+   ```json
+   { "sub": "order-service", "roles": ["SERVICE"] }
+   ```
+3. In the **Verify Signature** box paste the value of `JWT_SECRET` from your `.env` file.
+4. Copy the encoded token from the left panel and use it as `Authorization: Bearer <token>`.
 
 ### Endpoint authorization
 
@@ -71,7 +93,7 @@ A `USER` token presented to `/deduct` returns **403**. A `SERVICE` token present
 
 Creates a new wallet for the authenticated customer.
 
-- **Auth:** Any valid JWT. `customerId` is taken from `jwt.sub`.
+- **Auth:** `USER` role required. `customerId` is taken from `jwt.sub`.
 - **Request body:** none
 - **201 Created**
 
@@ -134,7 +156,7 @@ Adds funds to a wallet. Only the wallet owner may top up.
 
 Deducts funds from a wallet for an order. Idempotent — replaying the same request with the same `idempotencyKey` returns the original cached response without touching the balance again.
 
-- **Auth:** Any valid JWT (typically called by an internal order service).
+- **Auth:** `SERVICE` role required.
 - **Request body:**
 
 ```json
@@ -176,9 +198,9 @@ All four fields are required. `requestTimestamp` must be a positive epoch millis
 
 ### GET /wallets/{id}/balance
 
-Returns the current balance. Only the wallet owner may read it.
+Returns the current balance.
 
-- **Auth:** JWT `sub` must match `wallet.customerId`.
+- **Auth:** `USER` or `SERVICE` role required. For `USER` tokens, `jwt.sub` must match `wallet.customerId`. `SERVICE` tokens skip the ownership check.
 - **200 OK**
 
 ```json
@@ -201,11 +223,12 @@ Returns the current balance. Only the wallet owner may read it.
 
 ### GET /wallets/{id}/transactions
 
-Returns a paginated, newest-first list of all transactions for a wallet.
+Returns a cursor-paginated, newest-first list of all transactions for a wallet.
 
-- **Auth:** JWT `sub` must match `wallet.customerId`.
-- **Query params:** `page` (default `0`), `size` (default `10`, max `50`)
-  - Negative `page` is treated as `0`. `size` above `50` is silently capped.
+- **Auth:** `USER` or `SERVICE` role required. For `USER` tokens, `jwt.sub` must match `wallet.customerId`. `SERVICE` tokens skip the ownership check.
+- **Query params:**
+  - `size` (default `10`, max `50`) — number of records per page; values above `50` are silently capped.
+  - `nextToken` (optional) — opaque cursor returned by the previous response; omit on the first call.
 - **200 OK**
 
 ```json
@@ -223,19 +246,19 @@ Returns a paginated, newest-first list of all transactions for a wallet.
       "createdAt": "2024-05-17T09:00:00Z"
     }
   ],
-  "page": 0,
-  "size": 10,
-  "totalElements": 3,
-  "totalPages": 1,
-  "last": true
+  "size": 1,
+  "nextToken": "base64encodedCursor"
 }
 ```
+
+`nextToken` is `null` on the last page. To fetch the next page pass it as `?nextToken=<value>`.
 
 `type` values: `TOPUP`, `DEDUCTION`, `REFUND`, `REVERSAL`.
 
 | Status | Meaning |
 |--------|---------|
 | 200 | Transaction list returned |
+| 400 | `nextToken` is present but malformed |
 | 401 | Missing or invalid JWT |
 | 403 | JWT `sub` ≠ wallet owner |
 | 404 | Wallet not found |
