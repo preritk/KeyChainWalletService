@@ -1,6 +1,7 @@
 package com.keychain.wallet.entity;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+import com.keychain.wallet.enums.WalletStatus;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -23,8 +24,9 @@ public class Wallet {
     @Column(nullable = false, length = 3)
     private String currency = "INR";
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String status = "ACTIVE";
+    private WalletStatus status = WalletStatus.ACTIVE;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -54,7 +56,7 @@ public class Wallet {
     public String getCustomerId() { return customerId; }
     public BigDecimal getBalance() { return balance; }
     public String getCurrency() { return currency; }
-    public String getStatus() { return status; }
+    public WalletStatus getStatus() { return status; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public String getCreatedBy() { return createdBy; }
@@ -62,7 +64,7 @@ public class Wallet {
 
     public void setCustomerId(String customerId) { this.customerId = customerId; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
-    public void setStatus(String status) { this.status = status; }
+    public void setStatus(WalletStatus status) { this.status = status; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
 }

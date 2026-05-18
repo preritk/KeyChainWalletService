@@ -2,6 +2,7 @@ package com.keychain.wallet;
 
 import com.keychain.wallet.dto.response.TopUpResponse;
 import com.keychain.wallet.entity.Wallet;
+import com.keychain.wallet.enums.WalletStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 
@@ -82,7 +83,7 @@ class WalletTopUpApiTest extends AbstractIntegrationTest {
     void topUp_walletSuspended_400() {
         String walletId = createWallet("cust-001");
         Wallet wallet = walletRepository.findById(walletId).orElseThrow();
-        wallet.setStatus("SUSPENDED");
+        wallet.setStatus(WalletStatus.SUSPENDED);
         wallet.setUpdatedBy("test");
         walletRepository.save(wallet);
 

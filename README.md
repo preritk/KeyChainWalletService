@@ -12,6 +12,8 @@ cp .env.example .env
 
 Edit `.env` and fill in your values. For a default local setup:
 
+> **Note for reviewers:** The values below are provided solely to let you run the service locally without extra setup. In any non-local environment all secrets must come from a secrets manager (e.g. AWS Secrets Manager, HashiCorp Vault) or be injected as environment variables by the deployment platform — never hardcoded or committed to source control.
+
 ```
 DB_URL=jdbc:postgresql://localhost:5432/walletdb
 DB_NAME=walletdb
@@ -434,8 +436,6 @@ a single DB transaction.
 **`wallet_transaction`** — immutable ledger. Every money movement is a new row. Rows are
 never updated or deleted. Reversals are new rows of type `REVERSAL`. `balance_before` and
 `balance_after` snapshots make any single row self-auditable without replaying history.
-`idempotency_key` on this table is `UNIQUE` at the DB level — the last line of defence
-against double-deduction when the Order Service retries.
 
 **`idempotency_record`** — deduplication cache for the deduct endpoint. Keyed by
 `idempotency_key`. Stores the SHA-256 request fingerprint and the full serialised

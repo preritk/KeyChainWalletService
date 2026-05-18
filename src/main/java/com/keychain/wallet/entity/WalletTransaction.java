@@ -1,6 +1,9 @@
 package com.keychain.wallet.entity;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+import com.keychain.wallet.enums.TransactionReferenceType;
+import com.keychain.wallet.enums.TransactionStatus;
+import com.keychain.wallet.enums.TransactionType;
 import jakarta.persistence.*;
 import org.hibernate.annotations.ColumnTransformer;
 
@@ -19,8 +22,9 @@ public class WalletTransaction {
     @JoinColumn(name = "wallet_id", nullable = false)
     private Wallet wallet;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String type;
+    private TransactionType type;
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
@@ -31,17 +35,16 @@ public class WalletTransaction {
     @Column(name = "balance_after", nullable = false, precision = 18, scale = 2)
     private BigDecimal balanceAfter;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String status;
-
-    @Column(name = "idempotency_key", unique = true, length = 128)
-    private String idempotencyKey;
+    private TransactionStatus status;
 
     @Column(name = "reference_id", length = 128)
     private String referenceId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "reference_type", length = 32)
-    private String referenceType;
+    private TransactionReferenceType referenceType;
 
     @Column(name = "failure_reason", length = 255)
     private String failureReason;
@@ -64,28 +67,26 @@ public class WalletTransaction {
 
     public String getId() { return id; }
     public Wallet getWallet() { return wallet; }
-    public String getType() { return type; }
+    public TransactionType getType() { return type; }
     public BigDecimal getAmount() { return amount; }
     public BigDecimal getBalanceBefore() { return balanceBefore; }
     public BigDecimal getBalanceAfter() { return balanceAfter; }
-    public String getStatus() { return status; }
-    public String getIdempotencyKey() { return idempotencyKey; }
+    public TransactionStatus getStatus() { return status; }
     public String getReferenceId() { return referenceId; }
-    public String getReferenceType() { return referenceType; }
+    public TransactionReferenceType getReferenceType() { return referenceType; }
     public String getFailureReason() { return failureReason; }
     public String getMetadata() { return metadata; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public String getCreatedBy() { return createdBy; }
 
     public void setWallet(Wallet wallet) { this.wallet = wallet; }
-    public void setType(String type) { this.type = type; }
+    public void setType(TransactionType type) { this.type = type; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public void setBalanceBefore(BigDecimal balanceBefore) { this.balanceBefore = balanceBefore; }
     public void setBalanceAfter(BigDecimal balanceAfter) { this.balanceAfter = balanceAfter; }
-    public void setStatus(String status) { this.status = status; }
-    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public void setStatus(TransactionStatus status) { this.status = status; }
     public void setReferenceId(String referenceId) { this.referenceId = referenceId; }
-    public void setReferenceType(String referenceType) { this.referenceType = referenceType; }
+    public void setReferenceType(TransactionReferenceType referenceType) { this.referenceType = referenceType; }
     public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
     public void setMetadata(String metadata) { this.metadata = metadata; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

@@ -3,6 +3,8 @@ package com.keychain.wallet;
 import com.keychain.wallet.dto.response.BalanceResponse;
 import com.keychain.wallet.entity.Wallet;
 import com.keychain.wallet.entity.WalletTransaction;
+import com.keychain.wallet.enums.TransactionStatus;
+import com.keychain.wallet.enums.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 
@@ -321,11 +323,11 @@ class WalletReadApiTest extends AbstractIntegrationTest {
         for (int i = 0; i < count; i++) {
             WalletTransaction txn = new WalletTransaction();
             txn.setWallet(wallet);
-            txn.setType("TOPUP");
+            txn.setType(TransactionType.TOPUP);
             txn.setAmount(new BigDecimal("10"));
             txn.setBalanceBefore(BigDecimal.ZERO);
             txn.setBalanceAfter(new BigDecimal("10"));
-            txn.setStatus("SUCCESS");
+            txn.setStatus(TransactionStatus.SUCCESS);
             txn.setCreatedBy("test");
             walletTransactionRepository.save(txn);
         }

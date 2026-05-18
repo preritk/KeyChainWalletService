@@ -2,6 +2,7 @@ package com.keychain.wallet;
 
 import com.keychain.wallet.dto.response.DeductResponse;
 import com.keychain.wallet.entity.Wallet;
+import com.keychain.wallet.enums.WalletStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 
@@ -100,7 +101,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
         Wallet wallet = walletRepository.findById(walletId).orElseThrow();
-        wallet.setStatus("SUSPENDED");
+        wallet.setStatus(WalletStatus.SUSPENDED);
         wallet.setUpdatedBy("test");
         walletRepository.save(wallet);
 

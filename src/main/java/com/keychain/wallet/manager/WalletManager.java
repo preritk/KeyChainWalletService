@@ -12,6 +12,10 @@ import com.keychain.wallet.dto.response.WalletResponse;
 import com.keychain.wallet.entity.IdempotencyRecord;
 import com.keychain.wallet.entity.Wallet;
 import com.keychain.wallet.entity.WalletTransaction;
+import com.keychain.wallet.enums.TransactionReferenceType;
+import com.keychain.wallet.enums.TransactionStatus;
+import com.keychain.wallet.enums.TransactionType;
+import com.keychain.wallet.enums.WalletStatus;
 import com.keychain.wallet.exception.IdempotencyKeyMismatchException;
 import com.keychain.wallet.exception.InsufficientBalanceException;
 import com.keychain.wallet.exception.InvalidCursorException;
@@ -62,7 +66,7 @@ public class WalletManager {
         wallet.setUpdatedBy(customerId);
         Wallet saved = walletRepository.save(wallet);
         return new WalletResponse(saved.getId(), saved.getCustomerId(),
-                saved.getBalance(), saved.getCurrency(), saved.getStatus());
+                saved.getBalance(), saved.getCurrency(), saved.getStatus().name());
     }
 
     @Transactional
@@ -73,8 +77,8 @@ public class WalletManager {
         if (!wallet.getCustomerId().equals(requesterId)) {
             throw new WalletAccessDeniedException();
         }
-        if (!"ACTIVE".equals(wallet.getStatus())) {
-            throw new WalletNotActiveException(wallet.getStatus());
+        if (wallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new WalletNotActiveException(wallet.getStatus().name());
         }
 
         BigDecimal before = wallet.getBalance();
@@ -86,12 +90,12 @@ public class WalletManager {
 
         WalletTransaction txn = new WalletTransaction();
         txn.setWallet(wallet);
-        txn.setType("TOPUP");
+        txn.setType(TransactionType.TOPUP);
         txn.setAmount(amount);
         txn.setBalanceBefore(before);
         txn.setBalanceAfter(after);
-        txn.setStatus("SUCCESS");
-        txn.setReferenceType("CUSTOMER_TOPUP");
+        txn.setStatus(TransactionStatus.SUCCESS);
+        txn.setReferenceType(TransactionReferenceType.CUSTOMER_TOPUP);
         txn.setCreatedBy(requesterId);
         walletTransactionRepository.save(txn);
 
@@ -115,8 +119,8 @@ public class WalletManager {
 
         if (!wallet.getCustomerId().equals(request.customerId()))
             throw new WalletAccessDeniedException();
-        if (!"ACTIVE".equals(wallet.getStatus()))
-            throw new WalletNotActiveException(wallet.getStatus());
+        if (wallet.getStatus() != WalletStatus.ACTIVE)
+            throw new WalletNotActiveException(wallet.getStatus().name());
         if (wallet.getBalance().compareTo(request.amount()) < 0)
             throw new InsufficientBalanceException(wallet.getBalance(), request.amount());
 
@@ -128,14 +132,13 @@ public class WalletManager {
 
         WalletTransaction txn = new WalletTransaction();
         txn.setWallet(wallet);
-        txn.setType("DEDUCTION");
+        txn.setType(TransactionType.DEDUCTION);
         txn.setAmount(request.amount());
         txn.setBalanceBefore(before);
         txn.setBalanceAfter(after);
-        txn.setStatus("SUCCESS");
-        txn.setIdempotencyKey(idempotencyKey);
+        txn.setStatus(TransactionStatus.SUCCESS);
         txn.setReferenceId(request.orderId());
-        txn.setReferenceType("ORDER_DEDUCTION");
+        txn.setReferenceType(TransactionReferenceType.ORDER_DEDUCTION);
         txn.setCreatedBy(callerSubject);
         walletTransactionRepository.save(txn);
 
@@ -235,9 +238,11 @@ public class WalletManager {
         }
 
         List<TransactionResponse> content = page.stream()
-                .map(t -> new TransactionResponse(t.getId(), t.getType(), t.getAmount(),
-                        t.getBalanceBefore(), t.getBalanceAfter(), t.getStatus(),
-                        t.getReferenceId(), t.getReferenceType(), t.getCreatedAt()))
+                .map(t -> new TransactionResponse(t.getId(), t.getType().name(), t.getAmount(),
+                        t.getBalanceBefore(), t.getBalanceAfter(), t.getStatus().name(),
+                        t.getReferenceId(),
+                        t.getReferenceType() != null ? t.getReferenceType().name() : null,
+                        t.getCreatedAt()))
                 .toList();
 
         return new CursorPagedResponse<>(content, page.size(), responseNextToken);

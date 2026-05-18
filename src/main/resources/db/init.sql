@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS wallet_transaction (
     balance_before  NUMERIC(18, 2) NOT NULL,
     balance_after   NUMERIC(18, 2) NOT NULL,
     status          VARCHAR(20)    NOT NULL,
-    idempotency_key VARCHAR(128)   UNIQUE,
     reference_id    VARCHAR(128),
     reference_type  VARCHAR(32),
     failure_reason  VARCHAR(255),
