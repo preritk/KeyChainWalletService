@@ -83,7 +83,7 @@ Two distinct token types are used depending on the caller:
 
 **User token** (frontend):
 ```json
-{ "sub": "cust-001", "roles": ["USER"] }
+{ "sub": "cust001", "roles": ["USER"] }
 ```
 
 **Service token** (internal services, e.g. Order Service):
@@ -98,7 +98,7 @@ Use [jwt.io](https://jwt.io) to mint tokens for Postman or curl testing:
 1. Set **Algorithm** to `HS256`.
 2. Paste a payload — for a user token:
    ```json
-   { "sub": "cust-001", "roles": ["USER"] }
+   { "sub": "cust001", "roles": ["USER"] }
    ```
    For a service token:
    ```json
@@ -133,8 +133,8 @@ Creates a new wallet for the authenticated customer.
 
 ```json
 {
-  "id": "V1StGXR8_Z5jdHi6B-myT",
-  "customerId": "cust-001",
+  "id": "V1StGXR8_Z5jdHi6B_myT",
+  "customerId": "cust001",
   "balance": 0.00,
   "currency": "INR",
   "status": "ACTIVE"
@@ -174,8 +174,8 @@ Adds funds to a wallet. Only the wallet owner may top up.
 
 ```json
 {
-  "walletId": "V1StGXR8_Z5jdHi6B-myT",
-  "customerId": "cust-001",
+  "walletId": "V1StGXR8_Z5jdHi6B_myT",
+  "customerId": "cust001",
   "transactionId": "abc123...",
   "amount": 500.00,
   "balanceBefore": 0.00,
@@ -203,9 +203,9 @@ Deducts funds from a wallet for an order. Idempotent — replaying the same requ
 
 ```json
 {
-  "orderId": "order-789",
+  "orderId": "order789",
   "requestTimestamp": 1716000000000,
-  "customerId": "cust-001",
+  "customerId": "cust001",
   "amount": 100.00
 }
 ```
@@ -216,10 +216,10 @@ All four fields are required. `requestTimestamp` must be a positive epoch millis
 
 ```json
 {
-  "walletId": "V1StGXR8_Z5jdHi6B-myT",
-  "customerId": "cust-001",
+  "walletId": "V1StGXR8_Z5jdHi6B_myT",
+  "customerId": "cust001",
   "transactionId": "xyz987...",
-  "orderId": "order-789",
+  "orderId": "order789",
   "amount": 100.00,
   "balanceBefore": 500.00,
   "balanceAfter": 400.00,
@@ -247,8 +247,8 @@ Returns the current balance.
 
 ```json
 {
-  "walletId": "V1StGXR8_Z5jdHi6B-myT",
-  "customerId": "cust-001",
+  "walletId": "V1StGXR8_Z5jdHi6B_myT",
+  "customerId": "cust001",
   "balance": 400.00,
   "currency": "INR"
 }
@@ -283,7 +283,7 @@ Returns a cursor-paginated, newest-first list of all transactions for a wallet.
       "balanceBefore": 500.00,
       "balanceAfter": 400.00,
       "status": "SUCCESS",
-      "referenceId": "order-789",
+      "referenceId": "order789",
       "referenceType": "ORDER_DEDUCTION",
       "createdAt": "2024-05-17T09:00:00Z"
     }
