@@ -71,33 +71,18 @@ public class WalletManager {
 
     @Transactional
     public TopUpResponse topUp(String walletId, String requesterId, BigDecimal amount) {
-        Wallet wallet = walletRepository.findByIdForUpdate(walletId)
-                .orElseThrow(() -> new WalletNotFoundException(walletId));
-
-        if (!wallet.getCustomerId().equals(requesterId)) {
-            throw new WalletAccessDeniedException();
-        }
-        if (wallet.getStatus() != WalletStatus.ACTIVE) {
-            throw new WalletNotActiveException(wallet.getStatus().name());
-        }
+        Wallet wallet = fetchWalletForUpdate(walletId);
+        requireOwnership(wallet, requesterId);
+        requireActive(wallet);
 
         BigDecimal before = wallet.getBalance();
         BigDecimal after = before.add(amount);
-
         wallet.setBalance(after);
         wallet.setUpdatedBy(requesterId);
         walletRepository.save(wallet);
 
-        WalletTransaction txn = new WalletTransaction();
-        txn.setWallet(wallet);
-        txn.setType(TransactionType.TOPUP);
-        txn.setAmount(amount);
-        txn.setBalanceBefore(before);
-        txn.setBalanceAfter(after);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setReferenceType(TransactionReferenceType.CUSTOMER_TOPUP);
-        txn.setCreatedBy(requesterId);
-        walletTransactionRepository.save(txn);
+        WalletTransaction txn = buildAndSaveTransaction(wallet, TransactionType.TOPUP,
+                amount, before, after, null, TransactionReferenceType.CUSTOMER_TOPUP, requesterId);
 
         return new TopUpResponse(wallet.getId(), wallet.getCustomerId(), txn.getId(),
                 amount, before, after, wallet.getCurrency());
@@ -111,16 +96,13 @@ public class WalletManager {
         DeductResponse cached = checkIdempotency(idempotencyKey, hash);
         if (cached != null) return cached;
 
-        Wallet wallet = walletRepository.findByIdForUpdate(walletId)
-                .orElseThrow(() -> new WalletNotFoundException(walletId));
+        Wallet wallet = fetchWalletForUpdate(walletId);
 
         cached = checkIdempotency(idempotencyKey, hash);
         if (cached != null) return cached;
 
-        if (!wallet.getCustomerId().equals(request.customerId()))
-            throw new WalletAccessDeniedException();
-        if (wallet.getStatus() != WalletStatus.ACTIVE)
-            throw new WalletNotActiveException(wallet.getStatus().name());
+        requireOwnership(wallet, request.customerId());
+        requireActive(wallet);
         if (wallet.getBalance().compareTo(request.amount()) < 0)
             throw new InsufficientBalanceException(wallet.getBalance(), request.amount());
 
@@ -130,17 +112,9 @@ public class WalletManager {
         wallet.setUpdatedBy(callerSubject);
         walletRepository.save(wallet);
 
-        WalletTransaction txn = new WalletTransaction();
-        txn.setWallet(wallet);
-        txn.setType(TransactionType.DEDUCTION);
-        txn.setAmount(request.amount());
-        txn.setBalanceBefore(before);
-        txn.setBalanceAfter(after);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setReferenceId(request.orderId());
-        txn.setReferenceType(TransactionReferenceType.ORDER_DEDUCTION);
-        txn.setCreatedBy(callerSubject);
-        walletTransactionRepository.save(txn);
+        WalletTransaction txn = buildAndSaveTransaction(wallet, TransactionType.DEDUCTION,
+                request.amount(), before, after,
+                request.orderId(), TransactionReferenceType.ORDER_DEDUCTION, callerSubject);
 
         DeductResponse response = new DeductResponse(
                 wallet.getId(), wallet.getCustomerId(), txn.getId(),
@@ -171,6 +145,43 @@ public class WalletManager {
         }).orElse(null);
     }
 
+    private Wallet fetchWallet(String walletId) {
+        return walletRepository.findById(walletId)
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
+    }
+
+    private Wallet fetchWalletForUpdate(String walletId) {
+        return walletRepository.findByIdForUpdate(walletId)
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
+    }
+
+    private void requireOwnership(Wallet wallet, String callerId) {
+        if (callerId != null && !wallet.getCustomerId().equals(callerId))
+            throw new WalletAccessDeniedException();
+    }
+
+    private void requireActive(Wallet wallet) {
+        if (wallet.getStatus() != WalletStatus.ACTIVE)
+            throw new WalletNotActiveException(wallet.getStatus().name());
+    }
+
+    private WalletTransaction buildAndSaveTransaction(
+            Wallet wallet, TransactionType type, BigDecimal amount,
+            BigDecimal before, BigDecimal after,
+            String referenceId, TransactionReferenceType referenceType, String createdBy) {
+        WalletTransaction txn = new WalletTransaction();
+        txn.setWallet(wallet);
+        txn.setType(type);
+        txn.setAmount(amount);
+        txn.setBalanceBefore(before);
+        txn.setBalanceAfter(after);
+        txn.setStatus(TransactionStatus.SUCCESS);
+        txn.setReferenceId(referenceId);
+        txn.setReferenceType(referenceType);
+        txn.setCreatedBy(createdBy);
+        return walletTransactionRepository.save(txn);
+    }
+
     private String computeHash(String walletId, String orderId, String customerId, BigDecimal amount) {
         String data = walletId + "|" + orderId + "|" + customerId + "|"
                 + amount.stripTrailingZeros().toPlainString();
@@ -189,10 +200,8 @@ public class WalletManager {
 
     @Transactional(readOnly = true)
     public BalanceResponse getBalance(String walletId, String callerId) {
-        Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new WalletNotFoundException(walletId));
-        if (callerId != null && !wallet.getCustomerId().equals(callerId))
-            throw new WalletAccessDeniedException();
+        Wallet wallet = fetchWallet(walletId);
+        requireOwnership(wallet, callerId);
         return new BalanceResponse(wallet.getId(), wallet.getCustomerId(),
                 wallet.getBalance(), wallet.getCurrency());
     }
@@ -200,10 +209,8 @@ public class WalletManager {
     @Transactional(readOnly = true)
     public CursorPagedResponse<TransactionResponse> getTransactions(
             String walletId, String callerId, int size, String nextToken) {
-        Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new WalletNotFoundException(walletId));
-        if (callerId != null && !wallet.getCustomerId().equals(callerId))
-            throw new WalletAccessDeniedException();
+        Wallet wallet = fetchWallet(walletId);
+        requireOwnership(wallet, callerId);
 
         int cappedSize = Math.min(Math.max(size, 1), 50);
         int fetchLimit = cappedSize + 1;
