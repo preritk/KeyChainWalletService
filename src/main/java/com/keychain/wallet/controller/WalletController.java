@@ -32,6 +32,10 @@ public class WalletController {
         return walletManager.createWallet(jwt.getSubject());
     }
 
+    // Idempotency is not implemented: the frontend must supply a paymentTransactionId to serve
+    // as an idempotency key, but this field is missing from the current requirements. Until it
+    // is added, duplicate requests (retries, double-clicks) will each create a new topup.
+    // When the field is available, use idempotency_record (same as deduct) to deduplicate.
     @PostMapping("/{id}/topup")
     public TopUpResponse topUp(
             @PathVariable String id,

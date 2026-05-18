@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 public record TopUpRequest(
+    // TODO: add paymentTransactionId (frontend payment gateway ref) as idempotency key once
+    // requirements are defined; enforce via idempotency_record table, same pattern as deduct.
     @NotNull(message = "amount is required")
     @Positive(message = "amount must be greater than 0")
     @Digits(integer = 16, fraction = 2, message = "amount must have at most 2 decimal places")

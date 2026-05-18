@@ -37,6 +37,26 @@ curl http://localhost:8081/health
 curl http://localhost:8081/health/db
 ```
 
+## Running the end-to-end demo
+
+`scripts/deduct-demo.sh` walks through the full deduct flow in one command: wallet creation → top-up → deduction → idempotency replay → balance check → transaction list. Every run uses freshly generated random IDs so runs never conflict.
+
+**Prerequisites:** `curl`, `python3`, `jq`, `uuidgen` must be installed, and the service must already be running.
+
+```bash
+# Terminal 1 — start the service (env vars must be exported first)
+set -a; source .env; set +a
+./mvnw spring-boot:run
+
+# Terminal 2 — run the demo
+set -a; source .env; set +a
+bash scripts/deduct-demo.sh
+```
+
+The script prints a labelled header and formatted JSON response for each step. It exits non-zero if the idempotency check fails or any `curl` call returns an error HTTP status.
+
+---
+
 ## Running tests
 
 ```bash
@@ -134,6 +154,14 @@ Creates a new wallet for the authenticated customer.
 Adds funds to a wallet. Only the wallet owner may top up.
 
 - **Auth:** JWT `sub` must match `wallet.customerId`.
+
+> **Idempotency not implemented:** The frontend should supply a `paymentTransactionId` (e.g.
+> the gateway transaction reference) with each topup request to act as an idempotency key.
+> This field is absent from the current requirements. When added, idempotency can be enforced
+> using the existing `idempotency_record` table with `paymentTransactionId` as the key —
+> the same pattern used by the deduct endpoint. Until then, duplicate topups from retries or
+> double-clicks must be handled via customer support.
+
 - **Request body:**
 
 ```json
@@ -422,6 +450,60 @@ adds no benefit here.
 
 Tradeoff accepted: `VARCHAR(21)` index is marginally larger than a `BIGINT` index, but at
 wallet-service scale (one row per customer) this is imperceptible.
+
+---
+
+### Why Idempotency Uses a Double-Check Pattern
+
+The deduct flow checks the `idempotency_record` table **twice** — once before acquiring the
+row lock and once after.
+
+**First check (fast path):** If the record already exists (a replay), the lock is never
+acquired and the cached response is returned immediately, eliminating contention for retries.
+
+**Second check (race-condition guard):** Two concurrent requests (R1, R2) with the same key
+can both miss the first check if R1 has not committed yet. R2 then blocks on
+`SELECT FOR UPDATE`. Once R1 commits, R2 acquires the lock, finds R1's committed record on the
+second check, and returns the cached response — the deduction is not re-applied. Without the
+second check, R2 would execute a duplicate deduction.
+
+**SHA-256 request fingerprint:** The fingerprint (`SHA-256(walletId|orderId|customerId|amount)`)
+binds the idempotency key to the exact request parameters. Replaying the same key with any
+field changed — different amount, different customer — returns `422` rather than silently
+deducting a different amount under the same key.
+
+- **vs single pre-lock check** — cannot catch the concurrent in-flight case; R2 slips through
+  and deducts twice.
+- **vs optimistic locking + retry** — retry loops add complexity and can still produce incorrect
+  behavior if the retry logic itself has bugs.
+
+---
+
+### Why Two Distinct JWT Roles (`USER` vs `SERVICE`)
+
+Every token carries a `roles` claim of either `["USER"]` or `["SERVICE"]`. The `/deduct`
+endpoint requires `SERVICE`; `/wallets` (create) and `/topup` require `USER`.
+
+**Why not a single role:** The deduct endpoint must be callable by internal services (the order
+system) but never directly by a customer. With a single role, a leaked customer token would
+allow a user to deduct from their own wallet arbitrarily, bypassing the order flow entirely.
+Splitting the roles means a `USER` token on `/deduct` returns `403` at the framework level
+before any business logic runs.
+
+**Why SERVICE tokens skip the ownership check:** An internal service does not have a
+`customerId` as its JWT `sub` — it acts on behalf of any customer. Ownership is still enforced:
+the caller-supplied `customerId` in the request body is validated against `wallet.customerId`.
+The check just moves from the token subject to the request payload.
+
+**Why `roles`, not the standard OAuth2 `scope`:** The `scope` claim implies permissions
+delegated by an authorization server. This service has no authorization server — tokens are
+minted directly with a shared secret. Using `roles` makes the intent explicit: it describes
+the type of caller, not a delegated permission scope.
+
+- **vs a single role** — customer tokens become capable of calling service-only endpoints; a
+  leaked token has a larger blast radius.
+- **vs separate endpoints per caller type** — doubles the route surface area with no additional
+  expressiveness.
 
 ---
 
