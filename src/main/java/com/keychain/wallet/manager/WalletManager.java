@@ -90,7 +90,7 @@ public class WalletManager {
 
     @Transactional
     public DeductResponse deduct(String walletId, DeductRequest request, String callerSubject) {
-        String idempotencyKey = request.orderId() + "_" + request.requestTimestamp();
+        String idempotencyKey = request.orderId();
         String hash = computeHash(walletId, request.orderId(), request.customerId(), request.amount());
 
         DeductResponse cached = checkIdempotency(idempotencyKey, hash);

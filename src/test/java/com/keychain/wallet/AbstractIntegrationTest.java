@@ -32,7 +32,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -75,8 +74,6 @@ public abstract class AbstractIntegrationTest {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
-
-    private final AtomicLong keySeq = new AtomicLong(System.currentTimeMillis());
 
     @BeforeEach
     void setup() {
@@ -141,10 +138,6 @@ public abstract class AbstractIntegrationTest {
         return new HttpEntity<>(headers);
     }
 
-    protected long uniqueTimestamp() {
-        return keySeq.getAndIncrement();
-    }
-
     protected String createWallet(String customerId) {
         ResponseEntity<WalletResponse> response = rest.exchange(
                 "/wallets", HttpMethod.POST,
@@ -165,11 +158,10 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected ResponseEntity<DeductResponse> deduct(
-            String walletId, String orderId, long requestTimestamp,
+            String walletId, String orderId,
             String customerId, BigDecimal amount, String callerSubject) {
         Map<String, Object> body = Map.of(
                 "orderId", orderId,
-                "requestTimestamp", requestTimestamp,
                 "customerId", customerId,
                 "amount", amount);
         return rest.exchange(

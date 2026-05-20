@@ -40,12 +40,10 @@ ok "Service is up: $HEALTH"
 # ─── generate random IDs for this run ─────────────────────────────────────────
 CUSTOMER_ID="cust-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
 ORDER_ID="order-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
-REQUEST_TS=$(python3 -c "import time; print(int(time.time() * 1000))")
 SERVICE_CALLER="order-svc-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-6)"
 
 info "Customer ID   : $CUSTOMER_ID"
 info "Order ID      : $ORDER_ID"
-info "Request TS    : $REQUEST_TS"
 info "Service caller: $SERVICE_CALLER"
 
 # ─── JWT generation (pure Python, no external deps) ───────────────────────────
@@ -103,7 +101,6 @@ info "Order: $ORDER_ID  |  Amount: 100.00 INR  |  Caller: $SERVICE_CALLER"
 DEDUCT_BODY=$(cat <<EOF
 {
   "orderId": "$ORDER_ID",
-  "requestTimestamp": $REQUEST_TS,
   "customerId": "$CUSTOMER_ID",
   "amount": 100.00
 }
@@ -120,7 +117,7 @@ BALANCE_AFTER=$(echo "$DEDUCT_RESP" | jq -r '.balanceAfter')
 ok "Deduction applied — balance after: $BALANCE_AFTER INR"
 
 # ─── Step 4: Idempotency replay ───────────────────────────────────────────────
-header "Step 4: Idempotency Replay  (same request, same orderId + requestTimestamp)"
+header "Step 4: Idempotency Replay  (same request, same orderId)"
 info "Resending identical deduct request — balance must NOT change"
 
 REPLAY_RESP=$(curl -sf -X POST "$BASE_URL/wallets/$WALLET_ID/deduct" \

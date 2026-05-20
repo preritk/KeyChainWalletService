@@ -20,7 +20,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("500"));
 
         ResponseEntity<DeductResponse> response = deduct(
-                walletId, "order-001", uniqueTimestamp(), "cust-001",
+                walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -38,11 +38,10 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
     void deduct_idempotentReplay_returnsCachedResponse() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        ResponseEntity<DeductResponse> first = deduct(walletId, "order-001", ts, "cust-001",
+        ResponseEntity<DeductResponse> first = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
-        ResponseEntity<DeductResponse> replay = deduct(walletId, "order-001", ts, "cust-001",
+        ResponseEntity<DeductResponse> replay = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         assertThat(first.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -57,12 +56,11 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
     void deduct_idempotencyKeyMismatch_422() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        deduct(walletId, "order-001", ts, "cust-001", new BigDecimal("100"), "order-service");
+        deduct(walletId, "order-001", "cust-001", new BigDecimal("100"), "order-service");
 
         ResponseEntity<String> mismatch = deductRaw(walletId,
-                Map.of("orderId", "order-001", "requestTimestamp", ts,
+                Map.of("orderId", "order-001",
                         "customerId", "cust-001", "amount", new BigDecimal("200")),
                 "order-service");
 
@@ -74,7 +72,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
     @Test
     void deduct_walletNotFound_404() {
         ResponseEntity<String> response = deductRaw("nonexistent-id",
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("100")),
                 "order-service");
 
@@ -88,7 +86,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("500"));
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "cust-999", "amount", new BigDecimal("100")),
                 "order-service");
 
@@ -106,7 +104,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         walletRepository.save(wallet);
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("100")),
                 "order-service");
 
@@ -121,7 +119,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("50"));
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("100")),
                 "order-service");
 
@@ -136,7 +134,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("100"));
 
         ResponseEntity<DeductResponse> response = deduct(walletId, "order-001",
-                uniqueTimestamp(), "cust-001", new BigDecimal("100"), "order-service");
+                "cust-001", new BigDecimal("100"), "order-service");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().balanceAfter()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -148,7 +146,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         String walletId = createWallet("cust-001");
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "",
                         "customerId", "cust-001", "amount", new BigDecimal("10")),
                 "order-service");
 
@@ -156,27 +154,13 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         assertThat(response.getBody()).contains("orderId");
     }
 
-    // Test 23: missing requestTimestamp → 400
-    @Test
-    void deduct_missingRequestTimestamp_400() {
-        String walletId = createWallet("cust-001");
-
-        ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1",
-                        "customerId", "cust-001", "amount", new BigDecimal("10")),
-                "order-service");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).contains("requestTimestamp");
-    }
-
-    // Test 24: blank customerId → 400
+    // Test 23: blank customerId → 400
     @Test
     void deduct_blankCustomerId_400() {
         String walletId = createWallet("cust-001");
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "", "amount", new BigDecimal("10")),
                 "order-service");
 
@@ -184,20 +168,20 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         assertThat(response.getBody()).contains("customerId");
     }
 
-    // Test 25: negative amount → 400
+    // Test 24: negative amount → 400
     @Test
     void deduct_invalidAmount_400() {
         String walletId = createWallet("cust-001");
 
         ResponseEntity<String> response = deductRaw(walletId,
-                Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("-5")),
                 "order-service");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
-    // Test 26a: user token calling deduct → 403 (SERVICE role required)
+    // Test 25: user token calling deduct → 403 (SERVICE role required)
     @Test
     void deduct_userToken_403() {
         String walletId = createWallet("cust-001");
@@ -206,7 +190,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = rest.exchange(
                 "/wallets/" + walletId + "/deduct",
                 HttpMethod.POST,
-                jsonEntity(Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                jsonEntity(Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("10")), "cust-001"),
                 String.class);
 
@@ -223,7 +207,7 @@ class WalletDeductApiTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = rest.exchange(
                 "/wallets/" + walletId + "/deduct",
                 HttpMethod.POST,
-                new HttpEntity<>(Map.of("orderId", "o1", "requestTimestamp", uniqueTimestamp(),
+                new HttpEntity<>(Map.of("orderId", "o1",
                         "customerId", "cust-001", "amount", new BigDecimal("10")), headers),
                 String.class);
 

@@ -8,10 +8,6 @@ public record DeductRequest(
     @NotBlank(message = "orderId is required")
     String orderId,
 
-    @NotNull(message = "requestTimestamp is required")
-    @Positive(message = "requestTimestamp must be a positive epoch millisecond value")
-    Long requestTimestamp,
-
     @NotBlank(message = "customerId is required")
     String customerId,
 

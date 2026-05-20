@@ -204,13 +204,12 @@ Deducts funds from a wallet for an order. Idempotent — replaying the same requ
 ```json
 {
   "orderId": "order789",
-  "requestTimestamp": 1716000000000,
   "customerId": "cust001",
   "amount": 100.00
 }
 ```
 
-All four fields are required. `requestTimestamp` must be a positive epoch millisecond value.
+All three fields are required.
 
 - **200 OK**
 
@@ -313,7 +312,7 @@ Idempotency applies to the deduct endpoint only.
 
 ### Why it exists
 
-The Order Service may retry a deduction after a timeout or network hiccup. Without idempotency, each retry would subtract from the balance a second time. The service constructs the idempotency key internally as `orderId + "_" + requestTimestamp` — the caller only needs to supply these two values it already knows, and the key is deterministic across retries.
+The Order Service may retry a deduction after a timeout or network hiccup. Without idempotency, each retry would subtract from the balance a second time. The service uses `orderId` as the idempotency key — deterministic across retries since any retry for the same order carries the same `orderId`.
 
 ### Request fingerprint
 

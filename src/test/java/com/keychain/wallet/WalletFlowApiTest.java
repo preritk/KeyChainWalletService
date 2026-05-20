@@ -18,7 +18,7 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void flow_topUp_thenDeduct_balanceCorrect() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         ResponseEntity<String> balance = rest.exchange(
@@ -37,7 +37,7 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("300"));
 
         ResponseEntity<DeductResponse> response = deduct(walletId, "order-001",
-                uniqueTimestamp(), "cust-001", new BigDecimal("250"), "order-service");
+                "cust-001", new BigDecimal("250"), "order-service");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().balanceBefore()).isEqualByComparingTo(new BigDecimal("600"));
@@ -51,12 +51,12 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
 
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("200"), "order-service");
-        deduct(walletId, "order-002", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-002", "cust-001",
                 new BigDecimal("150"), "order-service");
         ResponseEntity<DeductResponse> last = deduct(walletId, "order-003",
-                uniqueTimestamp(), "cust-001", new BigDecimal("100"), "order-service");
+                "cust-001", new BigDecimal("100"), "order-service");
 
         assertThat(last.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(last.getBody().balanceAfter()).isEqualByComparingTo(new BigDecimal("50"));
@@ -68,11 +68,11 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void flow_deductAll_thenDeductMore_fails() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("100"));
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         ResponseEntity<String> overflow = deductRaw(walletId,
-                Map.of("orderId", "order-002", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "order-002",
                         "customerId", "cust-001", "amount", new BigDecimal("1")),
                 "order-service");
 
@@ -92,7 +92,7 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
         topUp(walletId, "cust-001", new BigDecimal("50"));
 
         ResponseEntity<DeductResponse> response = deduct(walletId, "order-001",
-                uniqueTimestamp(), "cust-001", new BigDecimal("130"), "order-service");
+                "cust-001", new BigDecimal("130"), "order-service");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().balanceAfter()).isEqualByComparingTo(new BigDecimal("20"));
@@ -103,10 +103,10 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void flow_interleavedTopUpsAndDeducts() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("100"));
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("50"), "order-service");
         topUp(walletId, "cust-001", new BigDecimal("200"));
-        deduct(walletId, "order-002", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-002", "cust-001",
                 new BigDecimal("30"), "order-service");
 
         ResponseEntity<String> balance = rest.exchange(
@@ -128,18 +128,18 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void flow_runToExhaustion_thenTopUp_thenDeduct() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("100"));
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         ResponseEntity<String> overflow = deductRaw(walletId,
-                Map.of("orderId", "order-002", "requestTimestamp", uniqueTimestamp(),
+                Map.of("orderId", "order-002",
                         "customerId", "cust-001", "amount", new BigDecimal("1")),
                 "order-service");
         assertThat(overflow.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
 
         topUp(walletId, "cust-001", new BigDecimal("200"));
         ResponseEntity<DeductResponse> final_ = deduct(walletId, "order-003",
-                uniqueTimestamp(), "cust-001", new BigDecimal("150"), "order-service");
+                "cust-001", new BigDecimal("150"), "order-service");
 
         assertThat(final_.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(final_.getBody().balanceAfter()).isEqualByComparingTo(new BigDecimal("50"));
@@ -154,13 +154,12 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void idempotency_replayThreeTimes_singleDeduction() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        ResponseEntity<DeductResponse> r1 = deduct(walletId, "order-001", ts, "cust-001",
+        ResponseEntity<DeductResponse> r1 = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
-        ResponseEntity<DeductResponse> r2 = deduct(walletId, "order-001", ts, "cust-001",
+        ResponseEntity<DeductResponse> r2 = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
-        ResponseEntity<DeductResponse> r3 = deduct(walletId, "order-001", ts, "cust-001",
+        ResponseEntity<DeductResponse> r3 = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         assertThat(r1.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -182,12 +181,11 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void idempotency_sameKey_differentAmount_422() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        deduct(walletId, "order-001", ts, "cust-001", new BigDecimal("100"), "order-service");
+        deduct(walletId, "order-001", "cust-001", new BigDecimal("100"), "order-service");
 
         ResponseEntity<String> mismatch = deductRaw(walletId,
-                Map.of("orderId", "order-001", "requestTimestamp", ts,
+                Map.of("orderId", "order-001",
                         "customerId", "cust-001", "amount", new BigDecimal("200")),
                 "order-service");
 
@@ -199,18 +197,17 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
         assertThat(balance.getBody()).contains("400");
     }
 
-    // Test 49: different orderId with same timestamp → distinct idempotency keys → treated as two independent deductions
+    // Test 49: different orderId → distinct idempotency keys → treated as two independent deductions
     @Test
-    void idempotency_differentOrderId_sameTimestamp_treatedAsDistinctKeys() {
+    void idempotency_differentOrderId_treatedAsDistinctKeys() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        // key = "order-001_<ts>"
-        deduct(walletId, "order-001", ts, "cust-001", new BigDecimal("100"), "order-service");
+        // key = "order-001"
+        deduct(walletId, "order-001", "cust-001", new BigDecimal("100"), "order-service");
 
-        // key = "order-002_<ts>" — different key, treated as a fresh deduction
-        ResponseEntity<DeductResponse> second = deduct(walletId, "order-002", ts, "cust-001",
+        // key = "order-002" — different key, treated as a fresh deduction
+        ResponseEntity<DeductResponse> second = deduct(walletId, "order-002", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -223,37 +220,36 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void idempotency_sameKey_differentCustomerId_422() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts = uniqueTimestamp();
 
-        deduct(walletId, "order-001", ts, "cust-001", new BigDecimal("100"), "order-service");
+        deduct(walletId, "order-001", "cust-001", new BigDecimal("100"), "order-service");
 
         // same key, different customerId → SHA-256 hash differs → 422 before ownership check
         ResponseEntity<String> mismatch = deductRaw(walletId,
-                Map.of("orderId", "order-001", "requestTimestamp", ts,
+                Map.of("orderId", "order-001",
                         "customerId", "cust-002", "amount", new BigDecimal("100")),
                 "order-service");
 
         assertThat(mismatch.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
-    // Test 51: failed deduct (insufficient balance) leaves no idempotency record; fresh key succeeds
+    // Test 51: failed deduct (insufficient balance) leaves no idempotency record;
+    // retrying the same orderId with corrected amount succeeds
     @Test
     void idempotency_freshKeyAfterFailedAttempt_succeeds() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("50"));
-        long failedTs = uniqueTimestamp();
 
         // first attempt: insufficient balance → 422 → no idempotency record stored
         ResponseEntity<String> failed = deductRaw(walletId,
-                Map.of("orderId", "order-001", "requestTimestamp", failedTs,
+                Map.of("orderId", "order-001",
                         "customerId", "cust-001", "amount", new BigDecimal("100")),
                 "order-service");
         assertThat(failed.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(idempotencyRecordRepository.findAll()).isEmpty(); // nothing persisted
 
-        // second attempt with a new key and lower amount → success
+        // same orderId, corrected lower amount → succeeds (no record was stored from failed attempt)
         ResponseEntity<DeductResponse> success = deduct(walletId, "order-001",
-                uniqueTimestamp(), "cust-001", new BigDecimal("30"), "order-service");
+                "cust-001", new BigDecimal("30"), "order-service");
         assertThat(success.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(success.getBody().balanceAfter()).isEqualByComparingTo(new BigDecimal("20"));
         assertThat(idempotencyRecordRepository.findAll()).hasSize(1);
@@ -265,12 +261,12 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("300"));
 
-        deduct(walletId, "order-001", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
-        deduct(walletId, "order-002", uniqueTimestamp(), "cust-001",
+        deduct(walletId, "order-002", "cust-001",
                 new BigDecimal("100"), "order-service");
         ResponseEntity<DeductResponse> third = deduct(walletId, "order-003",
-                uniqueTimestamp(), "cust-001", new BigDecimal("100"), "order-service");
+                "cust-001", new BigDecimal("100"), "order-service");
 
         assertThat(third.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(third.getBody().balanceAfter()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -283,16 +279,14 @@ class WalletFlowApiTest extends AbstractIntegrationTest {
     void idempotency_replay_afterAnotherDeduct_stillReturnsCached() {
         String walletId = createWallet("cust-001");
         topUp(walletId, "cust-001", new BigDecimal("500"));
-        long ts1 = uniqueTimestamp();
-        long ts2 = uniqueTimestamp();
 
-        ResponseEntity<DeductResponse> r1 = deduct(walletId, "order-001", ts1, "cust-001",
+        ResponseEntity<DeductResponse> r1 = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
-        deduct(walletId, "order-002", ts2, "cust-001",
+        deduct(walletId, "order-002", "cust-001",
                 new BigDecimal("100"), "order-service");
 
-        // Replay ts1: should return cached response from when balance was 500→400, not current 300
-        ResponseEntity<DeductResponse> replay = deduct(walletId, "order-001", ts1, "cust-001",
+        // Replay order-001: should return cached response from when balance was 500→400, not current 300
+        ResponseEntity<DeductResponse> replay = deduct(walletId, "order-001", "cust-001",
                 new BigDecimal("100"), "order-service");
 
         assertThat(replay.getStatusCode()).isEqualTo(HttpStatus.OK);
