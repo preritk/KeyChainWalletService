@@ -196,7 +196,7 @@ Adds funds to a wallet. Only the wallet owner may top up.
 
 ### POST /wallets/{id}/deduct
 
-Deducts funds from a wallet for an order. Idempotent — replaying the same request with the same `idempotencyKey` returns the original cached response without touching the balance again.
+Deducts funds from a wallet for an order. Idempotent — replaying the same request with the same `orderId` returns the original cached response without touching the balance again.
 
 - **Auth:** `SERVICE` role required.
 - **Request body:**
